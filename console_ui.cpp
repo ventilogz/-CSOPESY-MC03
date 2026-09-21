@@ -3,6 +3,8 @@
 #include <iostream>
 #include <string>
 
+#include "CommandInterpreter.h"   // inserted and changed sa file ni mau
+
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -52,6 +54,7 @@ void displayHeader() {
     std::cout << std::string(44, '-') << "\n\n";
 }
 
+
 // Full redraw: clears the screen and reprints the header. This is the
 // hook Member 2's marquee loop should call on each animation tick once
 // it needs to repaint the screen without leaving old frames behind —
@@ -75,58 +78,35 @@ std::string trim(const std::string& s) {
 }
 
 // ---------------------------------------------------------------------------
-// Command hand-off (placeholder until Member 3's interpreter is merged in)
-// ---------------------------------------------------------------------------
-
-// This is intentionally NOT the real command interpreter — Member 3 owns
-// parsing/dispatch for help, start_marquee, stop_marquee, set_text, and
-// set_speed. This stub only proves the prompt correctly reads and echoes
-// input, per the "prompt accepts and echoes input as expected" test case.
-// Replace the body of this function with a call into Member 3's module,
-// e.g.: CommandInterpreter::process(command);
-void handleCommand(const std::string& command) {
-    std::cout << "You entered: \"" << command << "\"\n";
-    std::cout << "(Command interpreter not yet wired in - placeholder echo only.)\n\n";
-}
-
-// ---------------------------------------------------------------------------
 // Main command loop
 // ---------------------------------------------------------------------------
 
 void runConsole() {
     displayHeader();
 
+    CommandInterpreter interpreter;   // Ina part interpreter merged
+    
     std::string rawInput;
     bool running = true;
 
     while (running) {
         std::cout << "Command> ";
         if (!std::getline(std::cin, rawInput)) {
-            // stdin closed (e.g. EOF) — exit cleanly instead of looping forever
-            break;
+            break; // stdin closed (EOF)
         }
 
         std::string command = trim(rawInput);
 
         if (command.empty()) {
-            continue; // blank line: just reprompt, don't echo an error
+            continue; // blank line: just reprompt
         }
 
-        if (command == "exit") {
-            std::cout << "\nTerminating console...\n";
-            running = false;
-            continue;
-        }
-
-        handleCommand(command);
+        // The interpreter handles every command, including "exit".
+        // process() returns false when the user typed exit.
+        running = interpreter.process(command);
     }
 }
 
-// ---------------------------------------------------------------------------
-// Entry point — lets Mau compile and run this file completely on its own.
-// Once merged with teammates' modules, main() will likely move to a shared
-// file; runConsole() itself does not need to change.
-// ---------------------------------------------------------------------------
 int main() {
     runConsole();
     return 0;
