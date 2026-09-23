@@ -1,16 +1,19 @@
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <mutex>
 #include <string>
 
-#include "CommandInterpreter.h"   // inserted and changed sa file ni mau
+#include "CommandInterpreter.h"
+#include "MarqueeEngine.h"
+#include "Terminal.h"
 
 #ifdef _WIN32
 #include <windows.h>
 #endif
 
 // ---------------------------------------------------------------------------
-// Config — edit these once and the rest of the file needs no changes
+// Config
 // ---------------------------------------------------------------------------
 static const std::string GROUP_MEMBERS[] = {
     "Lance Krystofer Galicia",
@@ -28,13 +31,6 @@ R"(  ____ ____   ___  ____  _____ ______   __
  \____|____/ \___/|_|   |_____|____/ |_|  
 )";
 
-// ---------------------------------------------------------------------------
-// Screen / display formatting
-// ---------------------------------------------------------------------------
-
-// Clears the terminal. Works on both Windows (system("cls")) and
-// Linux/macOS (ANSI escape codes), so it behaves the same regardless of
-// which IDE/OS a teammate is testing on.
 void clearScreen() {
 #ifdef _WIN32
     system("cls");
@@ -43,7 +39,6 @@ void clearScreen() {
 #endif
 }
 
-// Prints the startup banner: ASCII header, group developer names, version date.
 void displayHeader() {
     std::cout << ASCII_HEADER << "\n";
     std::cout << "Group developers:\n";
@@ -54,22 +49,11 @@ void displayHeader() {
     std::cout << std::string(44, '-') << "\n\n";
 }
 
-
-// Full redraw: clears the screen and reprints the header. This is the
-// hook Member 2's marquee loop should call on each animation tick once
-// it needs to repaint the screen without leaving old frames behind —
-// keeping the refresh logic in one place avoids every module clearing
-// the screen its own way.
 void refreshScreen() {
     clearScreen();
     displayHeader();
 }
 
-// ---------------------------------------------------------------------------
-// Input helpers
-// ---------------------------------------------------------------------------
-
-// Strips leading/trailing whitespace so "  help " and "help" behave the same.
 std::string trim(const std::string& s) {
     size_t start = s.find_first_not_of(" \t\r\n");
     if (start == std::string::npos) return "";
@@ -77,34 +61,97 @@ std::string trim(const std::string& s) {
     return s.substr(start, end - start + 1);
 }
 
-// ---------------------------------------------------------------------------
-// Main command loop
-// ---------------------------------------------------------------------------
+static std::string readCommandLine(std::vector<std::string>& history) {
+    std::string buffer;
+    std::string draft;                          // saves your in-progress typing
+    std::size_t historyIndex = history.size();  // starts "past the end" = blank line
+
+    auto redrawLine = [&]() {
+        std::cout << "\r";
+        clearToEndOfLine();
+        std::cout << "Command> " << buffer << std::flush;
+    };
+
+    while (true) {
+        int ch = terminalReadKey();
+        std::lock_guard<std::mutex> lock(screenMutex());
+
+        if (ch == KEY_UP) {
+            if (historyIndex > 0) {
+                if (historyIndex == history.size()) draft = buffer; // stash it first
+                historyIndex--;
+                buffer = history[historyIndex];
+                redrawLine();
+            }
+            continue;
+        }
+        if (ch == KEY_DOWN) {
+            if (historyIndex < history.size()) {
+                historyIndex++;
+                buffer = (historyIndex == history.size()) ? draft : history[historyIndex];
+                redrawLine();
+            }
+            continue;
+        }
+        if (ch == KEY_IGNORE) continue;
+
+        if (ch == '\r' || ch == '\n') {
+            std::cout << "\n";
+            break;
+        } else if (ch == 8 || ch == 127) {
+            if (!buffer.empty()) {
+                buffer.pop_back();
+                std::cout << "\b \b" << std::flush;
+            }
+        } else if (ch >= 32 && ch < 127) {
+            buffer += static_cast<char>(ch);
+            std::cout << static_cast<char>(ch) << std::flush;
+        }
+    }
+    return buffer;
+}
 
 void runConsole() {
+    terminalInit();
+
     displayHeader();
+    std::cout << "\n";              // reserved row — the marquee draws here
+    std::cout << "Command> " << std::flush;
 
-    CommandInterpreter interpreter;   // Ina part interpreter merged
-    
-    std::string rawInput;
+    CommandInterpreter interpreter;
+
+    MarqueeEngine marquee;
+    CommandInterpreter::MarqueeHooks hooks;
+    hooks.onSetText  = [&marquee](const std::string& text) { marquee.setText(text); };
+    hooks.onStart    = [&marquee]() { marquee.start(); };
+    hooks.onStop     = [&marquee]() { marquee.stop(); };
+    hooks.onSetSpeed = [&marquee](const std::string& args) { marquee.setSpeed(args); };
+    interpreter.setHooks(hooks);
+
+    std::vector<std::string> commandHistory;
+
     bool running = true;
-
     while (running) {
-        std::cout << "Command> ";
-        if (!std::getline(std::cin, rawInput)) {
-            break; // stdin closed (EOF)
-        }
-
-        std::string command = trim(rawInput);
+        std::string command = trim(readCommandLine(commandHistory));
 
         if (command.empty()) {
-            continue; // blank line: just reprompt
+            std::cout << "\n" << "Command> " << std::flush;
+            continue;
         }
 
-        // The interpreter handles every command, including "exit".
-        // process() returns false when the user typed exit.
-        running = interpreter.process(command);
+        commandHistory.push_back(command);   // remember it for next time
+
+        {
+            std::lock_guard<std::mutex> lock(screenMutex());
+            running = interpreter.process(command);
+        }
+
+        if (running) {
+            std::cout << "\n" << "Command> " << std::flush;
+        }
     }
+
+    terminalShutdown();
 }
 
 int main() {
