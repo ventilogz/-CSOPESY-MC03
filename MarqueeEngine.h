@@ -4,34 +4,47 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 class MarqueeEngine {
 public:
+    static constexpr int SCENE_WIDTH  = 80;
+    static constexpr int SCENE_HEIGHT = 11;
+
     MarqueeEngine();
     ~MarqueeEngine();
 
     // Hooked up to CommandInterpreter::MarqueeHooks
-    void start();                          
-    void stop();                           
-    void setText(const std::string& text); 
+    void start();
+    void stop();
+    void setText(const std::string& text);
     void setSpeed(const std::string& args);
 
+    // Called from console_ui.cpp only (never from inside a hook)
+    void setSceneRow(int row);   // 1-based screen row where the scene starts
+    void drawStill();            // draws one frame without moving anything
+    void shutdown();             // stops the thread; safe to call twice
+
 private:
-    void run();                   
-    std::string buildFrame();     
-    void render(const std::string& frame);
+    void run();
+    std::vector<std::string> buildFrame(bool advance);
+    void render(const std::vector<std::string>& frame);
 
-    std::thread       worker_;
-    std::atomic<bool> alive_;      
-    std::atomic<bool> shouldRun_;  
-    std::atomic<int>  speedMs_;
-    std::atomic<std::size_t> position_;
+    std::thread              worker_;
+    std::atomic<bool>        alive_;
+    std::atomic<bool>        shouldRun_;
+    std::atomic<int>         speedMs_;
+    std::atomic<std::size_t> position_;   // signboard text scroll offset
+    std::atomic<int>         jeepX_;      // jeep's left column (goes negative while exiting)
+    std::atomic<int>         sceneRow_;
 
-    std::mutex  textMutex_;        
+    std::mutex  textMutex_;
     std::string text_;
 
-    static constexpr int MIN_SPEED_MS   = 10;    
-    static constexpr int MAX_SPEED_MS   = 5000;  
+    static constexpr int MIN_SPEED_MS     = 10;
+    static constexpr int MAX_SPEED_MS     = 5000;
     static constexpr int DEFAULT_SPEED_MS = 200;
-    static constexpr int MARQUEE_WIDTH  = 40;     
+    static constexpr int SIGN_WIDTH       = 20;
+    static constexpr int JEEP_WIDTH       = 40;
+    static constexpr int JEEP_TOP         = 2;   // scene row where the jeep's sign starts
 };

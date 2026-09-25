@@ -11,6 +11,7 @@ void terminalInit();
 void terminalShutdown();  
 
 int terminalReadKey();
+int terminalRows();      
 
 void cursorSave();
 void cursorRestore();
