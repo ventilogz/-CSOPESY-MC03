@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "run mc03",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/mc03",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "terminal": "external",
+      "preLaunchTask": "build mc03"
+    }
+  ]
+}
