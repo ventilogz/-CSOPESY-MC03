@@ -8,6 +8,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <cstdio>
+#include <sys/ioctl.h>
 #endif
 
 std::mutex& screenMutex() {
@@ -41,6 +42,13 @@ int terminalReadKey() {
     return ch;
 }
 
+int terminalRows() {
+    CONSOLE_SCREEN_BUFFER_INFO info;
+    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &info))
+        return info.srWindow.Bottom - info.srWindow.Top + 1;
+    return 30;
+}
+
 #else
 
 static termios g_oldTermios;
@@ -71,6 +79,12 @@ int terminalReadKey() {
         return KEY_IGNORE;
     }
     return ch;
+}
+
+int terminalRows() {
+    winsize ws{};
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0) return ws.ws_row;
+    return 24;
 }
 
 #endif

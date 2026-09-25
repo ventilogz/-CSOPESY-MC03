@@ -32,11 +32,7 @@ R"(  ____ ____   ___  ____  _____ ______   __
 )";
 
 void clearScreen() {
-#ifdef _WIN32
-    system("cls");
-#else
-    std::cout << "\033[2J\033[1;1H";
-#endif
+    std::cout << "\033[2J\033[1;1H" << std::flush;   // works on Windows too once terminalInit() runs
 }
 
 void displayHeader() {
@@ -113,14 +109,29 @@ static std::string readCommandLine(std::vector<std::string>& history) {
 
 void runConsole() {
     terminalInit();
+    clearScreen();
+
+    // Screen layout:
+    //   rows 1..11  jeepney scene (redrawn by the marquee thread)
+    //   row  12     divider
+    //   row  13+    header, commands and output (only this part scrolls)
+    const int sceneRow   = 1;
+    const int dividerRow = sceneRow + MarqueeEngine::SCENE_HEIGHT;
+    const int consoleTop = dividerRow + 1;
+    const int screenRows = terminalRows();
+
+    std::cout << "\033[" << dividerRow << ";1H" << std::string(MarqueeEngine::SCENE_WIDTH, '=');
+    std::cout << "\033[" << consoleTop << ";" << screenRows << "r";   // scroll region
+    std::cout << "\033[" << consoleTop << ";1H";                      // cursor into it
 
     displayHeader();
-    std::cout << "\n";              // reserved row — the marquee draws here
-    std::cout << "Command> " << std::flush;
 
     CommandInterpreter interpreter;
 
     MarqueeEngine marquee;
+    marquee.setSceneRow(sceneRow);
+    marquee.drawStill();                  // parked jeep until start_marquee
+
     CommandInterpreter::MarqueeHooks hooks;
     hooks.onSetText  = [&marquee](const std::string& text) { marquee.setText(text); };
     hooks.onStart    = [&marquee]() { marquee.start(); };
@@ -128,29 +139,34 @@ void runConsole() {
     hooks.onSetSpeed = [&marquee](const std::string& args) { marquee.setSpeed(args); };
     interpreter.setHooks(hooks);
 
+    {
+        std::lock_guard<std::mutex> lock(screenMutex());
+        std::cout << "Command> " << std::flush;
+    }
+
     std::vector<std::string> commandHistory;
 
     bool running = true;
     while (running) {
         std::string command = trim(readCommandLine(commandHistory));
 
+        std::lock_guard<std::mutex> lock(screenMutex());   // fix 2: all printing is locked
+
         if (command.empty()) {
-            std::cout << "\n" << "Command> " << std::flush;
+            std::cout << "Command> " << std::flush;
             continue;
         }
 
-        commandHistory.push_back(command);   // remember it for next time
-
-        {
-            std::lock_guard<std::mutex> lock(screenMutex());
-            running = interpreter.process(command);
-        }
+        commandHistory.push_back(command);
+        running = interpreter.process(command);
 
         if (running) {
-            std::cout << "\n" << "Command> " << std::flush;
+            std::cout << "Command> " << std::flush;
         }
     }
 
+    marquee.shutdown();                                         // stop drawing first
+    std::cout << "\033[r\033[" << screenRows << ";1H\n" << std::flush;  // undo scroll region
     terminalShutdown();
 }
 
