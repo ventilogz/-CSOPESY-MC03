@@ -8,10 +8,6 @@
 #include "MarqueeEngine.h"
 #include "Terminal.h"
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
@@ -58,19 +54,34 @@ std::string trim(const std::string& s) {
 }
 
 static std::string readCommandLine(std::vector<std::string>& history) {
+    const std::string PROMPT = "Command> ";
+    const int room = std::max(10, terminalCols() - static_cast<int>(PROMPT.size()) - 1);
+
     std::string buffer;
     std::string draft;                          // saves your in-progress typing
     std::size_t historyIndex = history.size();  // starts "past the end" = blank line
 
+    // Redraws the prompt on ONE row. If the text is longer than the row,
+    // only the last part is shown, so the line never wraps.
     auto redrawLine = [&]() {
-        std::cout << "\r";
+        std::string shown = buffer;
+        if (static_cast<int>(shown.size()) > room) shown = shown.substr(shown.size() - room);
+        std::cout << "\r" << PROMPT << shown;
         clearToEndOfLine();
-        std::cout << "Command> " << buffer << std::flush;
+        std::cout << std::flush;
     };
 
     while (true) {
         int ch = terminalReadKey();
         std::lock_guard<std::mutex> lock(screenMutex());
+
+        // Ctrl+C, Ctrl+D or closed input: behave exactly like typing "exit"
+        if (ch == 3 || ch == 4 || ch == KEY_EOF) {
+            buffer = "exit";
+            redrawLine();
+            std::cout << "\n";
+            break;
+        }
 
         if (ch == KEY_UP) {
             if (historyIndex > 0) {
@@ -92,16 +103,19 @@ static std::string readCommandLine(std::vector<std::string>& history) {
         if (ch == KEY_IGNORE) continue;
 
         if (ch == '\r' || ch == '\n') {
+            // Print the full command once (it may wrap now; editing is over)
+            std::cout << "\r" << PROMPT << buffer;
+            clearToEndOfLine();
             std::cout << "\n";
             break;
         } else if (ch == 8 || ch == 127) {
             if (!buffer.empty()) {
                 buffer.pop_back();
-                std::cout << "\b \b" << std::flush;
+                redrawLine();
             }
         } else if (ch >= 32 && ch < 127) {
             buffer += static_cast<char>(ch);
-            std::cout << static_cast<char>(ch) << std::flush;
+            redrawLine();
         }
     }
     return buffer;
@@ -118,6 +132,17 @@ void runConsole() {
     const int sceneRow   = 1;
     const int dividerRow = sceneRow + MarqueeEngine::SCENE_HEIGHT;
     const int consoleTop = dividerRow + 1;
+        const int minRows    = consoleTop + 8;   // room for at least a few lines of output
+
+    // Wait until the window is big enough for the layout
+    while (terminalRows() < minRows || terminalCols() < MarqueeEngine::SCENE_WIDTH) {
+        clearScreen();
+        std::cout << "Window too small: " << terminalCols() << "x" << terminalRows()
+                  << ". Resize to at least " << MarqueeEngine::SCENE_WIDTH << "x" << minRows
+                  << ", then press any key.\n" << std::flush;
+        if (terminalReadKey() == KEY_EOF) break;
+    }
+    clearScreen();
     const int screenRows = terminalRows();
 
     std::cout << "\033[" << dividerRow << ";1H" << std::string(MarqueeEngine::SCENE_WIDTH, '=');
