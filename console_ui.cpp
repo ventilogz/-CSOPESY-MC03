@@ -3,6 +3,7 @@
 #include <iostream>
 #include <mutex>
 #include <string>
+#include <vector>
 
 #include "CommandInterpreter.h"
 #include "MarqueeEngine.h"
@@ -27,18 +28,22 @@ R"(  ____ ____   ___  ____  _____ ______   __
  \____|____/ \___/|_|   |_____|____/ |_|  
 )";
 
+// Green "Command>" prompt. PROMPT_WIDTH is what you see on screen (color codes take no space).
+static const std::string PROMPT = std::string(color::GREEN) + color::BOLD + "Command>" + color::RESET + " ";
+static const int PROMPT_WIDTH = 9;
+
 void clearScreen() {
     std::cout << "\033[2J\033[1;1H" << std::flush;   // works on Windows too once terminalInit() runs
 }
 
 void displayHeader() {
-    std::cout << ASCII_HEADER << "\n";
-    std::cout << "Group developers:\n";
+    std::cout << color::CYAN << ASCII_HEADER << color::RESET << "\n";
+    std::cout << color::BOLD << "Group developers:" << color::RESET << "\n";
     for (const std::string& name : GROUP_MEMBERS) {
         std::cout << "  " << name << "\n";
     }
-    std::cout << VERSION_DATE << "\n";
-    std::cout << std::string(44, '-') << "\n\n";
+    std::cout << color::GRAY << VERSION_DATE << color::RESET << "\n";
+    std::cout << color::GRAY << std::string(44, '-') << color::RESET << "\n\n";
 }
 
 void refreshScreen() {
@@ -54,8 +59,7 @@ std::string trim(const std::string& s) {
 }
 
 static std::string readCommandLine(std::vector<std::string>& history) {
-    const std::string PROMPT = "Command> ";
-    const int room = std::max(10, terminalCols() - static_cast<int>(PROMPT.size()) - 1);
+    const int room = std::max(10, terminalCols() - PROMPT_WIDTH - 1);
 
     std::string buffer;
     std::string draft;                          // saves your in-progress typing
@@ -132,7 +136,7 @@ void runConsole() {
     const int sceneRow   = 1;
     const int dividerRow = sceneRow + MarqueeEngine::SCENE_HEIGHT;
     const int consoleTop = dividerRow + 1;
-        const int minRows    = consoleTop + 8;   // room for at least a few lines of output
+    const int minRows    = consoleTop + 8;   // room for at least a few lines of output
 
     // Wait until the window is big enough for the layout
     while (terminalRows() < minRows || terminalCols() < MarqueeEngine::SCENE_WIDTH) {
@@ -145,7 +149,8 @@ void runConsole() {
     clearScreen();
     const int screenRows = terminalRows();
 
-    std::cout << "\033[" << dividerRow << ";1H" << std::string(MarqueeEngine::SCENE_WIDTH, '=');
+    std::cout << "\033[" << dividerRow << ";1H" << color::CYAN
+              << std::string(MarqueeEngine::SCENE_WIDTH, '=') << color::RESET;
     std::cout << "\033[" << consoleTop << ";" << screenRows << "r";   // scroll region
     std::cout << "\033[" << consoleTop << ";1H";                      // cursor into it
 
@@ -166,7 +171,7 @@ void runConsole() {
 
     {
         std::lock_guard<std::mutex> lock(screenMutex());
-        std::cout << "Command> " << std::flush;
+        std::cout << PROMPT << std::flush;
     }
 
     std::vector<std::string> commandHistory;
@@ -175,10 +180,10 @@ void runConsole() {
     while (running) {
         std::string command = trim(readCommandLine(commandHistory));
 
-        std::lock_guard<std::mutex> lock(screenMutex());   // fix 2: all printing is locked
+        std::lock_guard<std::mutex> lock(screenMutex());   // all printing is locked
 
         if (command.empty()) {
-            std::cout << "Command> " << std::flush;
+            std::cout << PROMPT << std::flush;
             continue;
         }
 
@@ -186,7 +191,7 @@ void runConsole() {
         running = interpreter.process(command);
 
         if (running) {
-            std::cout << "Command> " << std::flush;
+            std::cout << PROMPT << std::flush;
         }
     }
 

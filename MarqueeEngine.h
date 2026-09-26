@@ -26,9 +26,14 @@ public:
     void shutdown();             // stops the thread; safe to call twice
 
 private:
+    struct Frame {
+        std::vector<std::string> text;    // the characters
+        std::vector<std::string> color;   // one color key per character
+    };
+
     void run();
-    std::vector<std::string> buildFrame(bool advance);
-    void render(const std::vector<std::string>& frame);
+    Frame buildFrame(bool advance);
+    void render(const Frame& frame);
 
     std::thread              worker_;
     std::atomic<bool>        alive_;

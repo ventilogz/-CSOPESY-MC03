@@ -1,5 +1,5 @@
 #include "CommandInterpreter.h"
-
+#include "Terminal.h"
 #include <iostream>
 
 namespace {
@@ -67,16 +67,16 @@ bool CommandInterpreter::process(const std::string& line) {
     for (const Command& cmd : table_) {
         if (cmd.name == name) {                           
             if (!cmd.takesArgs && !args.empty()) {
-                std::cout << "Error: '" << cmd.name << "' does not take any arguments."
-                          << " Usage: " << cmd.usage << "\n\n";
+                    std::cout << color::RED << "Error: '" << cmd.name << "' does not take any arguments."
+                    << " Usage: " << cmd.usage << color::RESET << "\n\n";
                 return true;
             }
             return cmd.handler(args);
         }
     }
 
-    std::cout << "Error: unrecognized command \"" << name
-              << "\". Type 'help' to see the available commands.\n\n";
+    std::cout << color::RED << "Error: unrecognized command \"" << name
+        << "\". Type 'help' to see the available commands." << color::RESET << "\n\n";
     return true;
 }
 
@@ -85,7 +85,7 @@ bool CommandInterpreter::process(const std::string& line) {
 // ---------------------------------------------------------------------------
 bool CommandInterpreter::cmdHelp() {
     for (const Command& cmd : table_) {
-        std::cout << cmd.name << " - " << cmd.description << "\n";
+        std::cout << color::YELLOW << cmd.name << color::RESET << " - " << cmd.description << "\n";
     }
     std::cout << "\n";
     return true;
@@ -93,24 +93,25 @@ bool CommandInterpreter::cmdHelp() {
 
 bool CommandInterpreter::cmdSetText(const std::string& args) {
     if (args.empty()) {
-        std::cout << "Error: set_text needs some text. Usage: set_text <your_string>\n\n";
+        std::cout << color::RED << "Error: set_text needs some text. Usage: set_text <your_string>"
+            << color::RESET << "\n\n";
         return true;
     }
     if (args.size() > MAX_TEXT_LENGTH) {
-        std::cout << "Error: text is too long (" << args.size()
-                  << " characters; maximum is " << MAX_TEXT_LENGTH << ").\n\n";
+        std::cout << color::RED << "Error: text is too long (" << args.size()
+            << " characters; maximum is " << MAX_TEXT_LENGTH << ")." << color::RESET << "\n\n";
         return true;
     }
 
     savedText_ = args;                                    
-    std::cout << "Text saved for marquee: " << savedText_ << "\n\n";
+    std::cout << color::GREEN << "Text saved for marquee: " << color::RESET << savedText_ << "\n\n";
 
     if (hooks_.onSetText) hooks_.onSetText(savedText_);  
     return true;
 }
 
 bool CommandInterpreter::cmdExit() {
-    std::cout << "Terminating console...\n";
+    std::cout << color::YELLOW << "Terminating console..." << color::RESET << "\n";
     return false;
 }
 
