@@ -3,16 +3,21 @@
   "tasks": [
     {
       "label": "build mc03",
-      "type": "shell",
+      "type": "process",
       "command": "g++",
       "args": [
-        "-std=c++17",
-        "-pthread",
-        "-g",
-        "${workspaceFolder}/*.cpp",
-        "-o",
-        "${workspaceFolder}/mc03"
+        "-std=c++17", "-pthread", "-g",
+        "console_ui.cpp", "CommandInterpreter.cpp", "MarqueeEngine.cpp", "Terminal.cpp",
+        "-o", "mc03"
       ],
+      "windows": {
+        "args": [
+          "-std=c++17", "-pthread", "-g", "-static",
+          "console_ui.cpp", "CommandInterpreter.cpp", "MarqueeEngine.cpp", "Terminal.cpp",
+          "-o", "mc03.exe"
+        ]
+      },
+      "options": { "cwd": "${workspaceFolder}" },
       "group": { "kind": "build", "isDefault": true },
       "problemMatcher": ["$gcc"]
     }
