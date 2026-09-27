@@ -17,6 +17,12 @@ Other source files:
 - MarqueeEngine.cpp / MarqueeEngine.h
 - Terminal.cpp / Terminal.h
 
+GitHub Repository (Alternative)
+--------------------------------
+If you'd rather view or clone the source directly, the project is
+also available at:
+https://github.com/ventilogz/-CSOPESY-MC03
+
 
 About the Program
 -----------------
