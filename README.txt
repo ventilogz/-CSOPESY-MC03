@@ -63,7 +63,8 @@ stop_marquee          Stops the marquee animation
 set_text <text>       Sets the text shown on the jeepney's signboard
                       (1 to 1000 characters)
 set_speed <ms>        Sets the marquee refresh interval in milliseconds
-                      (whole number, clamped to 10 to 5000 ms)
+                      (whole number from 1 to 60000 ms; decimals, negative
+                      numbers and 0 are rejected)
 exit                  Terminates the console
 
 Notes:

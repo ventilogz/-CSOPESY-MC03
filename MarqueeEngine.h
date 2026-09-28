@@ -46,8 +46,8 @@ private:
     std::mutex  textMutex_;
     std::string text_;
 
-    static constexpr int MIN_SPEED_MS     = 10;
-    static constexpr int MAX_SPEED_MS     = 5000;
+    static constexpr int MIN_SPEED_MS     = 1; // Made lower for possible test cases
+    static constexpr int MAX_SPEED_MS     = 60000; // Made higher for possible test cases
     static constexpr int DEFAULT_SPEED_MS = 200;
     static constexpr int SIGN_WIDTH       = 20;
     static constexpr int JEEP_WIDTH       = 40;

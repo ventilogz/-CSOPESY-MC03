@@ -117,29 +117,62 @@ void MarqueeEngine::setText(const std::string& text) {
 
 // set_speed <ms>: validates and clamps to a safe range
 void MarqueeEngine::setSpeed(const std::string& args) {
-    int ms;
-    try {
-        std::size_t consumed = 0;
-        ms = std::stoi(args, &consumed);
-        if (consumed != args.size()) throw std::invalid_argument("trailing characters");
-    } catch (...) {
-        std::cout << color::RED << "Error: set_speed needs a whole number of milliseconds. "
-                     "Usage: set_speed <milliseconds>" << color::RESET << "\n\n";
+    const char* usage = "Usage: set_speed <milliseconds>";
+
+    // 1) nothing typed after set_speed
+    if (args.empty()) {
+        std::cout << color::RED << "Error: set_speed needs a value. " << usage
+                  << color::RESET << "\n\n";
         return;
     }
 
+    // 2) decimals are not allowed (e.g. 1.5, .5, 100,5)
+    if (args.find('.') != std::string::npos || args.find(',') != std::string::npos) {
+        std::cout << color::RED << "Error: decimals are not allowed. set_speed only accepts "
+                     "whole numbers of milliseconds." << color::RESET << "\n\n";
+        return;
+    }
+
+    // 3) optional sign, then digits only (rejects abc, 10abc, 1e3, 5 6)
+    std::size_t start = 0;
+    bool negative = false;
+    if (args[0] == '-' || args[0] == '+') {
+        negative = (args[0] == '-');
+        start = 1;
+    }
+    if (start == args.size() || args.find_first_not_of("0123456789", start) != std::string::npos) {
+        std::cout << color::RED << "Error: set_speed needs a whole number of milliseconds. "
+                  << usage << color::RESET << "\n\n";
+        return;
+    }
+
+    // 4) negative numbers are rejected
+    if (negative) {
+        std::cout << color::RED << "Error: speed cannot be negative. Use " << MIN_SPEED_MS
+                  << " to " << MAX_SPEED_MS << " ms." << color::RESET << "\n\n";
+        return;
+    }
+
+    // 5) convert safely (very long numbers are treated as "too large")
+    std::string digits = args.substr(start);
+    std::size_t firstNonZero = digits.find_first_not_of('0');
+    digits = (firstNonZero == std::string::npos) ? "0" : digits.substr(firstNonZero);
+    long long ms = (digits.size() > 9) ? static_cast<long long>(MAX_SPEED_MS) + 1 : std::stoll(digits);
+
+    // 6) zero is rejected; values above the maximum are clamped
     if (ms < MIN_SPEED_MS) {
-        std::cout << color::YELLOW << ms << "ms is below the minimum. Speed clamped to "
-                  << MIN_SPEED_MS << "ms." << color::RESET << "\n\n";
-        ms = MIN_SPEED_MS;
-    } else if (ms > MAX_SPEED_MS) {
-        std::cout << color::YELLOW << ms << "ms is above the maximum. Speed clamped to "
+        std::cout << color::RED << "Error: speed must be at least " << MIN_SPEED_MS << " ms."
+                  << color::RESET << "\n\n";
+        return;
+    }
+    if (ms > MAX_SPEED_MS) {
+        std::cout << color::YELLOW << args << "ms is above the maximum. Speed clamped to "
                   << MAX_SPEED_MS << "ms." << color::RESET << "\n\n";
         ms = MAX_SPEED_MS;
     } else {
         std::cout << color::GREEN << "Marquee speed set to " << ms << "ms." << color::RESET << "\n\n";
     }
-    speedMs_ = ms;
+    speedMs_ = static_cast<int>(ms);
 }
 
 void MarqueeEngine::run() {
