@@ -42,6 +42,7 @@ private:
     std::atomic<std::size_t> position_;   // signboard text scroll offset
     std::atomic<int>         jeepX_;      // jeep's left column (goes negative while exiting)
     std::atomic<int>         sceneRow_;
+    std::atomic<bool>        redraw_;     // text changed while stopped: draw one still frame
 
     std::mutex  textMutex_;
     std::string text_;

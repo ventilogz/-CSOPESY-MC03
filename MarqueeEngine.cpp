@@ -73,7 +73,7 @@ char jeepColor(std::size_t r, std::size_t c, char ch) {
 
 MarqueeEngine::MarqueeEngine()
     : alive_(true), shouldRun_(false), speedMs_(DEFAULT_SPEED_MS), position_(0),
-      jeepX_((SCENE_WIDTH - JEEP_WIDTH) / 2), sceneRow_(1),
+      jeepX_((SCENE_WIDTH - JEEP_WIDTH) / 2), sceneRow_(1), redraw_(false),
       text_("TAFT - VITO CRUZ") {                    // never starts empty
     worker_ = std::thread(&MarqueeEngine::run, this);
 }
@@ -113,6 +113,7 @@ void MarqueeEngine::setText(const std::string& text) {
     std::lock_guard<std::mutex> lock(textMutex_);
     text_ = text;
     position_ = 0;
+    redraw_ = true;          // let the marquee thread show the new text even while stopped
 }
 
 // set_speed <ms>: validates and clamps to a safe range
@@ -187,6 +188,7 @@ void MarqueeEngine::run() {
                 waited += step;
             }
         } else {
+            if (redraw_.exchange(false)) render(buildFrame(false));   // show new text on the parked jeep
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
     }
